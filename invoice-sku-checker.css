@@ -1,0 +1,193 @@
+/* invoice-sku-checker.css */
+.invoice-sku-container {
+    max-width: 1200px;
+    margin: 20px auto;
+    font-family: Arial, sans-serif;
+}
+
+.invoice-sku-button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+
+.invoice-sku-button.reset {
+    background-color: #607d8b;
+    color: white;
+}
+
+.invoice-sku-button.reset:hover {
+    background-color: #455a64;
+}
+
+.invoice-sku-form {
+    margin: 15px 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.invoice-sku-form label {
+    font-weight: bold;
+    color: #333;
+}
+
+.invoice-sku-form input[type="text"],
+.invoice-sku-form input[type="date"] {
+    width: 300px;
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.invoice-sku-form input[type="submit"] {
+    background-color: #2196f3;
+    color: white;
+}
+
+.invoice-sku-form input[type="submit"]:hover {
+    background-color: #1976d2;
+}
+
+.invoice-sku-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.invoice-sku-table th,
+.invoice-sku-table td {
+    padding: 10px;
+    text-align: left;
+    border: 1px solid #ddd;
+}
+
+.invoice-sku-table th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+    color: #333;
+}
+
+.invoice-sku-table tr:nth-child(even) {
+    background-color: #fafafa;
+}
+
+.invoice-sku-table tr:hover {
+    background-color: #f0f0f0;
+}
+
+.invoice-sku-table .match {
+    color: #4caf50;
+    font-weight: bold;
+}
+
+.invoice-sku-table .no-match {
+    color: #f44336;
+    font-weight: bold;
+}
+
+.invoice-sku-table .delete-button {
+    background-color: #f44336;
+    color: white;
+}
+
+.invoice-sku-table .delete-button:hover {
+    background-color: #d32f2f;
+}
+
+.invoice-sku-action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.invoice-sku-action-buttons input[name="exchange_sku"] {
+    background-color: #ff9800;
+    color: white;
+}
+
+.invoice-sku-action-buttons input[name="exchange_sku"]:hover {
+    background-color: #f57c00;
+}
+
+.invoice-sku-action-buttons input[name="cancel_sku"] {
+    background-color: #f44336;
+    color: white;
+}
+
+.invoice-sku-action-buttons input[name="cancel_sku"]:hover {
+    background-color: #d32f2f;
+}
+
+.invoice-sku-complete {
+    background-color: #4caf50;
+    color: white;
+    padding: 10px 20px;
+    font-size: 16px;
+}
+
+.invoice-sku-complete:hover {
+    background-color: #388e3c;
+}
+
+.invoice-sku-confirm {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid #ff9800;
+    background-color: #fff3e0;
+    border-radius: 4px;
+}
+
+.invoice-sku-confirm p {
+    margin: 0 0 10px 0;
+    color: #ff9800;
+    font-weight: bold;
+}
+
+.invoice-sku-confirm-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.invoice-sku-confirm-buttons input[value="Lưu"] {
+    background-color: #4caf50;
+    color: white;
+}
+
+.invoice-sku-confirm-buttons input[value="Lưu"]:hover {
+    background-color: #388e3c;
+}
+
+.invoice-sku-confirm-buttons input[value="Hủy"] {
+    background-color: #f44336;
+    color: white;
+}
+
+.invoice-sku-confirm-buttons input[value="Hủy"]:hover {
+    background-color: #d32f2f;
+}
+
+.invoice-sku-message {
+    padding: 10px;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+.invoice-sku-message.success {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.invoice-sku-message.warning {
+    background-color: #fff3e0;
+    color: #ff9800;
+}
+
+.invoice-sku-message.error {
+    background-color: #ffebee;
+    color: #d32f2f;
+}
