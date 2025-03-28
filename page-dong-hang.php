@@ -8,6 +8,13 @@
    * E.g., it puts together the home page when no home.php file exists.
    *
    */
+    // Kiểm tra đăng nhập
+    if (!is_user_logged_in()) {
+        // Chuyển hướng đến trang đăng nhập, sau khi đăng nhập sẽ quay lại /dong-hang
+        wp_redirect(wp_login_url(get_permalink()));
+        exit;
+    }
+
   $clientId = '22f58391-00fa-4db1-ac09-9940ffe39b53'; // Thay bằng client_id thực tế
   $clientSecret = '6FED2DD6AD67FEBAD8C3ED9709B44D110E0EFA40'; // Thay bằng client_secret thực tế
   $retailer = 'vuabanphim'; // Thay bằng retailer_id thực tế
@@ -19,7 +26,7 @@
 
 <?php
   
- // Đăng ký shortcode [invoice_sku_checker]
+// Đăng ký shortcode [invoice_sku_checker]
 function invoice_sku_checker_shortcode() {
     ob_start();
     session_start();
@@ -81,7 +88,7 @@ function invoice_sku_checker_shortcode() {
     // Xử lý nút "Kiểm tra"
     if (isset($_POST['check_sku']) && !empty($_POST['sku_code'])) {
         $skuCode = sanitize_text_field($_POST['sku_code']);
-        $quantity = isset($_POST['quantity']) ? intval($_POST['quantity']) : 1; // Mặc định 1 nếu không nhập
+        $quantity = isset($_POST['quantity']) ? intval($_POST['quantity']) : 1;
         $deliveryCode = $_SESSION['current_delivery_code'] ?? '';
         date_default_timezone_set('Asia/Ho_Chi_Minh');
         $currentTime = current_time('mysql');
@@ -97,7 +104,7 @@ function invoice_sku_checker_shortcode() {
                     $productName = $product['productName'] ?? 'N/A';
                     break;
                 } elseif ($product['productCode'] === $skuCode) {
-                    $productName = $product['productName'] ?? 'N/A'; // Lấy tên sản phẩm dù số lượng không khớp
+                    $productName = $product['productName'] ?? 'N/A';
                 }
             }
 
@@ -106,16 +113,16 @@ function invoice_sku_checker_shortcode() {
                     'datetime' => $currentTime,
                     'invoice_code' => $invoiceCode,
                     'sku_code' => $skuCode,
-                    'product_name' => $productName, // Thêm tên sản phẩm
-                    'quantity' => $quantity, // Thêm số lượng
+                    'product_name' => $productName,
+                    'quantity' => $quantity,
                     'delivery_code' => $deliveryCodeFromInvoice,
                     'match' => true
                 ];
             } else {
                 $_SESSION['show_buttons'] = true;
                 $_SESSION['last_sku'] = $skuCode;
-                $_SESSION['last_quantity'] = $quantity; // Lưu số lượng để dùng khi "Đổi"
-                $_SESSION['last_product_name'] = $productName; // Lưu tên sản phẩm để dùng khi "Đổi"
+                $_SESSION['last_quantity'] = $quantity;
+                $_SESSION['last_product_name'] = $productName;
             }
         }
     }
@@ -130,8 +137,8 @@ function invoice_sku_checker_shortcode() {
             'datetime' => $currentTime,
             'invoice_code' => $invoiceCode,
             'sku_code' => $_SESSION['last_sku'],
-            'product_name' => $_SESSION['last_product_name'] ?? 'N/A', // Thêm tên sản phẩm
-            'quantity' => $_SESSION['last_quantity'] ?? 1, // Thêm số lượng
+            'product_name' => $_SESSION['last_product_name'] ?? 'N/A',
+            'quantity' => $_SESSION['last_quantity'] ?? 1,
             'delivery_code' => $deliveryCode,
             'match' => false
         ];
@@ -162,23 +169,39 @@ function invoice_sku_checker_shortcode() {
     // Xử lý nút "Hoàn Thành" và xác nhận
     if (isset($_POST['complete']) && !empty($_SESSION['temp_data'])) {
         if (!isset($_SESSION['data_saved']) || $_SESSION['data_saved'] !== true) {
-            $hasMismatch = false;
-            foreach ($_SESSION['temp_data'] as $item) {
-                if (!$item['match']) {
-                    $hasMismatch = true;
-                    break;
-                }
-            }
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'invoice_sku_logs';
+            $delivery_code = $_SESSION['temp_data'][0]['delivery_code']; // Lấy delivery_code từ temp_data
 
-            if ($hasMismatch && !isset($_SESSION['show_confirm'])) {
-                $_SESSION['show_confirm'] = true;
-            } elseif (!$hasMismatch) {
-                save_to_database($_SESSION['temp_data']);
-                $_SESSION['data_saved'] = true;
-                unset($_SESSION['temp_data']);
-                unset($_SESSION['current_delivery_code']);
-                unset($_SESSION['show_confirm']);
-                echo '<p class="invoice-sku-message success">Đã lưu thông tin vào database.</p>';
+            // Kiểm tra xem delivery_code đã tồn tại trong DB chưa
+            $exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM $table_name WHERE delivery_code = %s",
+                $delivery_code
+            ));
+
+            if ($exists > 0) {
+                // Nếu delivery_code đã tồn tại, hiển thị thông báo lỗi và không lưu
+                echo '<p class="invoice-sku-message error">Mã vận đơn ' . esc_html($delivery_code) . ' đã tồn tại trong hệ thống. Không thể lưu dữ liệu.</p>';
+            } else {
+                // Nếu không tồn tại, tiếp tục logic hiện tại
+                $hasMismatch = false;
+                foreach ($_SESSION['temp_data'] as $item) {
+                    if (!$item['match']) {
+                        $hasMismatch = true;
+                        break;
+                    }
+                }
+
+                if ($hasMismatch && !isset($_SESSION['show_confirm'])) {
+                    $_SESSION['show_confirm'] = true;
+                } elseif (!$hasMismatch) {
+                    save_to_database($_SESSION['temp_data']);
+                    $_SESSION['data_saved'] = true;
+                    unset($_SESSION['temp_data']);
+                    unset($_SESSION['current_delivery_code']);
+                    unset($_SESSION['show_confirm']);
+                    echo '<p class="invoice-sku-message success">Đã lưu thông tin vào database.</p>';
+                }
             }
         } else {
             echo '<p class="invoice-sku-message warning">Dữ liệu đã được lưu trước đó, không lưu lại.</p>';
@@ -259,9 +282,9 @@ function invoice_sku_checker_shortcode() {
                 <tr>
                     <th>Thời gian</th>
                     <th>Mã hóa đơn</th>
-                    <th>Tên sản phẩm</th> <!-- Thêm cột Tên sản phẩm -->
+                    <th>Tên sản phẩm</th>
                     <th>Mã SKU</th>
-                    <th>Số lượng</th> <!-- Thêm cột Số lượng -->
+                    <th>Số lượng</th>
                     <th>Mã vận đơn</th>
                     <th>Trạng thái</th>
                     <th>Hành động</th>
@@ -270,9 +293,9 @@ function invoice_sku_checker_shortcode() {
                     <tr>
                         <td><?php echo esc_html($item['datetime']); ?></td>
                         <td><?php echo esc_html($item['invoice_code']); ?></td>
-                        <td><?php echo esc_html($item['product_name']); ?></td> <!-- Hiển thị tên sản phẩm -->
+                        <td><?php echo esc_html($item['product_name']); ?></td>
                         <td><?php echo esc_html($item['sku_code']); ?></td>
-                        <td><?php echo esc_html($item['quantity']); ?></td> <!-- Hiển thị số lượng -->
+                        <td><?php echo esc_html($item['quantity']); ?></td>
                         <td><?php echo esc_html($item['delivery_code']); ?></td>
                         <td class="<?php echo $item['match'] ? 'match' : 'no-match'; ?>">
                             <?php echo $item['match'] ? 'Khớp' : 'Không khớp'; ?>
@@ -341,12 +364,12 @@ function save_to_database($data) {
                 'datetime' => $item['datetime'],
                 'invoice_code' => $item['invoice_code'],
                 'sku_code' => $item['sku_code'],
-                'product_name' => $item['product_name'], // Thêm product_name
-                'quantity' => $item['quantity'], // Thêm quantity
+                'product_name' => $item['product_name'],
+                'quantity' => $item['quantity'],
                 'delivery_code' => $item['delivery_code'],
                 'match_status' => $item['match'] ? 1 : 0
             ],
-            ['%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d'] // Cập nhật định dạng
+            ['%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d']
         );
     }
 }
