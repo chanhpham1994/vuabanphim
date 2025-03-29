@@ -79,10 +79,28 @@ function invoice_sku_checker_shortcode() {
         $_SESSION['current_delivery_code'] = $deliveryCode;
         $allInvoices = get_all_invoices($token, $retailer);
         $invoiceData = find_invoice_by_delivery_code($allInvoices, $deliveryCode);
+
+        // Gán fullProductName ngay khi tải dữ liệu hóa đơn
+        if ($invoiceData && isset($invoiceData['invoiceDetails'])) {
+            foreach ($invoiceData['invoiceDetails'] as &$product) {
+                $productDetails = get_product_details($token, $retailer, $product['productCode']);
+                $fullProductName = $productDetails['fullName'] ?? $product['productName'] ?? 'N/A';
+                $product['fullProductName'] = $fullProductName;
+            }
+        }
     } elseif (isset($_SESSION['current_delivery_code'])) {
         $deliveryCode = $_SESSION['current_delivery_code'];
         $allInvoices = get_all_invoices($token, $retailer);
         $invoiceData = find_invoice_by_delivery_code($allInvoices, $deliveryCode);
+
+        // Gán fullProductName ngay khi tải dữ liệu hóa đơn
+        if ($invoiceData && isset($invoiceData['invoiceDetails'])) {
+            foreach ($invoiceData['invoiceDetails'] as &$product) {
+                $productDetails = get_product_details($token, $retailer, $product['productCode']);
+                $fullProductName = $productDetails['fullName'] ?? $product['productName'] ?? 'N/A';
+                $product['fullProductName'] = $fullProductName;
+            }
+        }
     }
 
     // Xử lý nút "Kiểm tra"
@@ -97,14 +115,14 @@ function invoice_sku_checker_shortcode() {
 
         if ($invoiceData && isset($invoiceData['invoiceDetails'])) {
             $matchFound = false;
-            $productName = 'N/A';
+            $fullProductName = 'N/A';
             foreach ($invoiceData['invoiceDetails'] as $product) {
+                // fullProductName đã được gán trước đó, chỉ cần lấy ra
+                $fullProductName = $product['fullProductName'] ?? 'N/A';
+
                 if ($product['productCode'] === $skuCode && $product['quantity'] === $quantity) {
                     $matchFound = true;
-                    $productName = $product['productName'] ?? 'N/A';
                     break;
-                } elseif ($product['productCode'] === $skuCode) {
-                    $productName = $product['productName'] ?? 'N/A';
                 }
             }
 
@@ -113,7 +131,7 @@ function invoice_sku_checker_shortcode() {
                     'datetime' => $currentTime,
                     'invoice_code' => $invoiceCode,
                     'sku_code' => $skuCode,
-                    'product_name' => $productName,
+                    'product_name' => $fullProductName,
                     'quantity' => $quantity,
                     'delivery_code' => $deliveryCodeFromInvoice,
                     'match' => true
@@ -122,7 +140,7 @@ function invoice_sku_checker_shortcode() {
                 $_SESSION['show_buttons'] = true;
                 $_SESSION['last_sku'] = $skuCode;
                 $_SESSION['last_quantity'] = $quantity;
-                $_SESSION['last_product_name'] = $productName;
+                $_SESSION['last_product_name'] = $fullProductName;
             }
         }
     }
@@ -171,19 +189,16 @@ function invoice_sku_checker_shortcode() {
         if (!isset($_SESSION['data_saved']) || $_SESSION['data_saved'] !== true) {
             global $wpdb;
             $table_name = $wpdb->prefix . 'invoice_sku_logs';
-            $delivery_code = $_SESSION['temp_data'][0]['delivery_code']; // Lấy delivery_code từ temp_data
+            $delivery_code = $_SESSION['temp_data'][0]['delivery_code'];
 
-            // Kiểm tra xem delivery_code đã tồn tại trong DB chưa
             $exists = $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(*) FROM $table_name WHERE delivery_code = %s",
                 $delivery_code
             ));
 
             if ($exists > 0) {
-                // Nếu delivery_code đã tồn tại, hiển thị thông báo lỗi và không lưu
                 echo '<p class="invoice-sku-message error">Mã vận đơn ' . esc_html($delivery_code) . ' đã tồn tại trong hệ thống. Không thể lưu dữ liệu.</p>';
             } else {
-                // Nếu không tồn tại, tiếp tục logic hiện tại
                 $hasMismatch = false;
                 foreach ($_SESSION['temp_data'] as $item) {
                     if (!$item['match']) {
@@ -227,11 +242,12 @@ function invoice_sku_checker_shortcode() {
     ?>
     <div class="invoice-sku-container">
         <!-- Nút Reset -->
-        <form method="post" action="">
+        <form method="post" action="" class="reset-form">
             <input type="submit" name="reset_session" value="Reset" class="invoice-sku-button reset">
         </form>
 
         <!-- Form mã vận đơn -->
+        <h2>Tìm kiếm mã vận đơn:</h2>
         <form method="post" action="" class="invoice-sku-form">
             <label for="delivery_code">Nhập mã vận đơn:</label>
             <input type="text" name="delivery_code" id="delivery_code" value="" required>
@@ -252,9 +268,10 @@ function invoice_sku_checker_shortcode() {
                 $tempSkus = array_column($_SESSION['temp_data'] ?? [], 'sku_code');
                 foreach ($invoiceData['invoiceDetails'] as $product) {
                     $style = in_array($product['productCode'], $tempSkus) ? 'color: #4caf50;' : '';
+                    $fullProductName = $product['fullProductName'] ?? ($product['productName'] ?? 'N/A');
                 ?>
                     <tr>
-                        <td style="<?php echo $style; ?>"><?php echo esc_html($product['productName'] ?? 'N/A'); ?></td>
+                        <td style="<?php echo $style; ?>"><?php echo esc_html($fullProductName); ?></td>
                         <td style="<?php echo $style; ?>"><?php echo esc_html($product['productCode'] ?? 'N/A'); ?></td>
                         <td><?php echo esc_html($product['quantity'] ?? 0); ?></td>
                         <td><?php echo number_format($product['price'] ?? 0, 0, ',', '.'); ?> VNĐ</td>
@@ -435,9 +452,26 @@ function find_invoice_by_delivery_code($invoices, $deliveryCode) {
     return null;
 }
 
-echo do_shortcode( '[invoice_sku_checker]' );
+// Hàm lấy thông tin chi tiết sản phẩm từ /products/code/{code}
+function get_product_details($token, $retailer, $productCode) {
+    $url = "https://public.kiotapi.com/products/code/$productCode";
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer ' . $token,
+        'Retailer: ' . $retailer,
+        'Content-Type: application/json'
+    ]);
 
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
 
+    if ($response && $httpCode === 200) {
+        return json_decode($response, true);
+    }
+    return null;
+}
 
 // Shortcode tìm kiếm thông tin từ wp_invoice_sku_logs
 function invoice_sku_search_shortcode() {
@@ -446,7 +480,6 @@ function invoice_sku_search_shortcode() {
     $table_name = $wpdb->prefix . 'invoice_sku_logs';
     $search_results = null;
 
-    // Xử lý tìm kiếm
     if (isset($_POST['search_sku_logs']) && !empty($_POST['search_term'])) {
         $search_term = sanitize_text_field($_POST['search_term']);
         $query = $wpdb->prepare(
@@ -463,7 +496,7 @@ function invoice_sku_search_shortcode() {
 
     ?>
     <div class="invoice-sku-container">
-        <h2>Tìm kiếm thông tin đã lưu</h2>
+        <h2>Tìm kiếm thông tin đã lưu:</h2>
         <form method="post" action="" class="invoice-sku-form">
             <label for="search_term">Nhập mã hóa đơn hoặc mã vận đơn:</label>
             <input type="text" name="search_term" id="search_term" value="" required>
@@ -509,5 +542,5 @@ function invoice_sku_search_shortcode() {
 }
 add_shortcode('invoice_sku_search', 'invoice_sku_search_shortcode');
 
-
+echo do_shortcode('[invoice_sku_checker]');
 echo do_shortcode('[invoice_sku_search]');
